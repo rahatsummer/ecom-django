@@ -49,4 +49,7 @@ def product_detail(request, category_slug, product_slug):
         'single_product': single_product,
     }
         
-    return render(request, 'greatkartapp/store/product_detail.html', context)   
+    return render(request, 'greatkartapp/store/product_detail.html', context) 
+
+def cart(request):
+    return render(request, 'greatkartapp/store/cart.html')  
