@@ -1,7 +1,10 @@
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 
+from .models import Cart, CartItem, Product, Category
+from django.core.exceptions import ObjectDoesNotExist
 from greatkartapp.models import Category, Product
+from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
 
 # Create your views here.
 
@@ -14,27 +17,38 @@ def index(request):
     return render(request, 'greatkartapp/index.html', context)
 
 # views.py
-from django.shortcuts import render, get_object_or_404
-from .models import Cart, CartItem, Product, Category
+
+
 
 def store(request, category_slug=None):
     categories = None
     products = None
+    paged_products = None
+    product_count = 0
 
     if category_slug:
         # For URL: /store/shirt/ (or /category/shirt/ depending on your pattern)
         categories = get_object_or_404(Category, slug=category_slug)
-        products = Product.objects.filter(category=categories, is_available=True)
+        products = Product.objects.filter(category=categories, is_available=True)       
         product_count = products.count()
+
+        paginator = Paginator(products, 6)
+        page = request.GET.get('page')
+        paged_products = paginator.get_page(page)
     else:
         # For URL: /store/
         products = Product.objects.filter(is_available=True)
-        product_count = products.count()
+        product_count = products.count()  # Count on QuerySet
+         # Apply pagination
+        paginator = Paginator(products, 3)
+        page = request.GET.get('page')
+        paged_products = paginator.get_page(page)
     
     # Common context (move outside if/else)
     context = {
-        'products': products,
+         'products': paged_products,  # Use paginated results
         'product_count': product_count,
+        'categories': categories,  # Will be None for /store/
         #'current_category': categories,  # Will be None for /store/
     }
     
@@ -43,11 +57,15 @@ def store(request, category_slug=None):
 def product_detail(request, category_slug, product_slug):
     try:
         single_product = Product.objects.get(category__slug=category_slug, slug=product_slug)
+        in_cart = CartItem.objects.filter(cart__cart_id=_cart_id(request), product=single_product).exists()
+        #return HttpResponse(in_cart)
+        #exit()
     except Exception as e:
         raise e
     
     context ={
         'single_product': single_product,
+        'in_cart': in_cart,
     }
         
     return render(request, 'greatkartapp/store/product_detail.html', context)
@@ -104,6 +122,8 @@ def remove_cart_item(request, product_id):
 
 def cart(request, total=0, quantity=0, cart_items=None):
     try:
+        tax = 0
+        grand_total = 0
         cart = Cart.objects.get(cart_id=_cart_id(request))
         cart_items = CartItem.objects.filter(cart=cart, is_active=True)
         for cart_item in cart_items:
