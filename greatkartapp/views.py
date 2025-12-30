@@ -5,6 +5,7 @@ from .models import Cart, CartItem, Product, Category
 from django.core.exceptions import ObjectDoesNotExist
 from greatkartapp.models import Category, Product
 from django.core.paginator import EmptyPage, PageNotAnInteger, Paginator
+from django.db.models import Q
 
 # Create your views here.
 
@@ -141,4 +142,15 @@ def cart(request, total=0, quantity=0, cart_items=None):
                 'grand_total': grand_total,}
     return render(request, 'greatkartapp/store/cart.html', context)  
 
+def search(request):
+    if 'keyword' in request.GET:
+        keyword = request.GET['keyword']
+        if keyword:
+            products = Product.objects.order_by('-created_date').filter(Q(description__icontains=keyword) | Q(product_name__icontains=keyword))
+            product_count = products.count()
+    context = {
+        'products': products,
+        'product_count': product_count,
+    }
+    return render(request, 'greatkartapp/store/store.html', context)
 
